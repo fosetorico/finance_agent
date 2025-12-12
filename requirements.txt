@@ -1,3 +1,5 @@
 openai 
 chromadb 
 python-dotenv
+mcp-use
+langchain-openai

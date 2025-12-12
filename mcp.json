@@ -1,0 +1,10 @@
+{
+    "connectors": {
+      "browser": {
+        "type": "stdio",
+        "command": "npx",
+        "args": ["@modelcontextprotocol/server-browser"]
+      }
+    }
+}
+  

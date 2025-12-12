@@ -22,6 +22,14 @@ def classify_intent(user_input: str) -> str:
         "save", "budget"
     ]
 
+    web_keywords = [
+        "news", "latest", "inflation", "interest rate",
+        "exchange rate", "fx", "market", "headline",
+        "trending", "economy", "financial", "stock",
+        "market news", "economy news", "financial news",
+        "stock market news", "economy news", "financial news"
+    ]
+
     # If it clearly asks for numbers/facts
     if any(k in text for k in db_keywords) and not any(k in text for k in llm_keywords):
         return "db"
@@ -29,6 +37,9 @@ def classify_intent(user_input: str) -> str:
     # If it clearly asks for advice only
     if any(k in text for k in llm_keywords) and not any(k in text for k in db_keywords):
         return "llm"
+
+    if any(k in text for k in web_keywords):
+        return "web"
 
     # Otherwise, assume it needs both
     return "hybrid"

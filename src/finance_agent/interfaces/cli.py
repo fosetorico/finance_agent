@@ -9,6 +9,7 @@ from finance_agent.data.db import FinanceDB
 from finance_agent.agent.categorizer import categorise
 from finance_agent.agent.router import classify_intent
 from finance_agent.agent.tools import get_db_context
+from finance_agent.agent.mcp_tools import create_mcp_agent
 
 
 # Load environment variables from .env
@@ -20,6 +21,7 @@ client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # Our simple semantic memory
 memory = MemoryStore()
 db = FinanceDB()
+mcp_agent = create_mcp_agent()
 
 
 async def chat():
@@ -60,6 +62,14 @@ async def chat():
             User question:
             {user_input}
         """
+        
+        if intent == "web":
+            print("\nAssistant (using live web tools):")
+            response = await mcp_agent.run(user_input)
+            print(response, "\n")
+
+            memory.add(user_input, response)
+            continue
 
         response = await client.responses.create(
             model="gpt-4.1",
