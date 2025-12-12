@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from openai import AsyncOpenAI
 
 from finance_agent.data.embeddings import MemoryStore
+from finance_agent.data.db import FinanceDB
 
 
 # Load environment variables from .env
@@ -15,6 +16,7 @@ client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Our simple semantic memory
 memory = MemoryStore()
+db = FinanceDB()
 
 
 async def chat():
@@ -46,6 +48,34 @@ Previous relevant conversation snippets:
 User question:
 {user_input}
 """
+        # Simple command handling
+        if user_input.lower().startswith("add transaction"):
+            # Example:
+            # add transaction 2024-01-10 Tesco 24.50 Food
+            parts = user_input.split()
+
+            try:
+                date = parts[2]
+                merchant = parts[3]
+                amount = float(parts[4])
+                category = parts[5]
+
+                db.add_transaction(date, merchant, amount, category)
+                print("Transaction added successfully.\n")
+                continue
+
+            except Exception:
+                print(
+                    "Invalid format.\n"
+                    "Use: add transaction YYYY-MM-DD Merchant Amount Category\n"
+                )
+                continue
+
+        if user_input.lower() == "total spend":
+            total = db.total_spend()
+            print(f"\nTotal spend recorded: £{total:.2f}\n")
+            continue
+
 
         # 3) Call OpenAI Responses API (gpt-4.1)
         response = await client.responses.create(
