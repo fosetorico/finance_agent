@@ -55,3 +55,29 @@ class FinanceDB:
         cursor.execute("SELECT SUM(amount) FROM transactions")
         result = cursor.fetchone()[0]
         return result or 0.0
+
+    def spend_by_category(self):
+        cursor = self.conn.cursor()
+        cursor.execute(
+            """
+            SELECT category, SUM(amount) as total
+            FROM transactions
+            GROUP BY category
+            ORDER BY total DESC
+            """
+        )
+        return cursor.fetchall()
+
+    def recent_transactions(self, limit: int = 10):
+        cursor = self.conn.cursor()
+        cursor.execute(
+            """
+            SELECT date, merchant, amount, category
+            FROM transactions
+            ORDER BY date DESC, id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+        return cursor.fetchall()
+

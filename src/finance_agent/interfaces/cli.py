@@ -30,11 +30,30 @@ async def chat():
             print("Goodbye!")
             break
 
-        # 1) Retrieve similar past exchanges from memory
+        # Retrieve similar past exchanges from memory
         similar = memory.search(user_input)
         context_block = "\n\n".join(similar)
 
-        # 2) Build a prompt that includes memory
+        # Pull structured facts from SQLite
+        total = db.total_spend()
+        by_cat = db.spend_by_category()
+        recent = db.recent_transactions(limit=10)
+
+        by_cat_text = "\n".join([f"- {cat}: £{amt:.2f}" for cat, amt in by_cat]) if by_cat else "No data yet."
+        recent_text = "\n".join([f"- {d} | {m} | £{a:.2f} | {c}" for d, m, a, c in recent]) if recent else "No data yet."
+
+        finance_facts = f"""
+            Structured finance facts (from SQLite):
+            Total spend recorded: £{total:.2f}
+
+            Spend by category:
+            {by_cat_text}
+
+            Recent transactions (latest first):
+            {recent_text}
+        """
+
+        # Build a prompt that includes memory
         system_prompt = (
             "You are a helpful personal finance assistant. "
             "You help the user understand spending, budgeting, and financial habits. "
@@ -42,12 +61,14 @@ async def chat():
         )
 
         full_input = f"""
-Previous relevant conversation snippets:
-{context_block}
+            {finance_facts}
+            
+            Previous relevant conversation snippets:
+            {context_block}
 
-User question:
-{user_input}
-"""
+            User question:
+            {user_input}
+        """
         # Simple command handling
         if user_input.lower().startswith("add transaction"):
             # Example:
@@ -77,7 +98,7 @@ User question:
             continue
 
 
-        # 3) Call OpenAI Responses API (gpt-4.1)
+        # Call OpenAI Responses API (gpt-4.1)
         response = await client.responses.create(
             model="gpt-4.1",
             input=[
@@ -86,12 +107,12 @@ User question:
             ],
         )
 
-        # 4) Extract text output
+        # Extract text output
         answer = response.output[0].content[0].text
 
         print("\nAssistant:", answer, "\n")
 
-        # 5) Save this new exchange into memory
+        # Save this new exchange into memory
         memory.add(user_input, answer)
 
 
