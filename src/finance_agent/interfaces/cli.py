@@ -6,6 +6,7 @@ from openai import AsyncOpenAI
 
 from finance_agent.data.embeddings import MemoryStore
 from finance_agent.data.db import FinanceDB
+from finance_agent.agent.categorizer import categorise
 
 
 # Load environment variables from .env
@@ -62,39 +63,85 @@ async def chat():
 
         full_input = f"""
             {finance_facts}
-            
+
             Previous relevant conversation snippets:
             {context_block}
 
             User question:
             {user_input}
         """
-        # Simple command handling
+
+        # Simple add Transaction
         if user_input.lower().startswith("add transaction"):
             # Example:
-            # add transaction 2024-01-10 Tesco 24.50 Food
+            # add transaction 2024-01-10 Tesco 24.50 [Category]
             parts = user_input.split()
 
             try:
                 date = parts[2]
                 merchant = parts[3]
                 amount = float(parts[4])
-                category = parts[5]
+
+                # Category optional: if not provided, auto-categorise
+                if len(parts) >= 6:
+                    category = parts[5]
+                else:
+                    category = categorise(merchant, amount)
 
                 db.add_transaction(date, merchant, amount, category)
-                print("Transaction added successfully.\n")
+                print(f"Transaction added successfully. Category: {category}\n")
                 continue
 
             except Exception:
                 print(
                     "Invalid format.\n"
-                    "Use: add transaction YYYY-MM-DD Merchant Amount Category\n"
+                    "Use: add transaction YYYY-MM-DD Merchant Amount [Category]\n"
                 )
                 continue
 
+        # Total Expense
         if user_input.lower() == "total spend":
             total = db.total_spend()
             print(f"\nTotal spend recorded: £{total:.2f}\n")
+            continue
+
+        # Monthly Summay
+        if user_input.lower() == "monthly summary":
+            rows = db.spend_by_month_and_category()
+            if not rows:
+                print("\nNo transactions yet.\n")
+                continue
+
+            print("\nMonthly spend by category:")
+            for month, cat, total in rows:
+                print(f"- {month} | {cat}: £{total:.2f}")
+            print("")
+            continue
+
+        #  Top Merchant
+        if user_input.lower() == "top merchants":
+            rows = db.top_merchants()
+            print("\nTop merchants:")
+            for m, total in rows:
+                print(f"- {m}: £{total:.2f}")
+            print("")
+            continue
+
+        # Anomaly Detection
+        if user_input.lower().startswith("anomalies"):
+            # anomalies [threshold]
+            parts = user_input.split()
+            threshold = float(parts[1]) if len(parts) > 1 else 100.0
+            rows = db.possible_anomalies(threshold)
+
+            if not rows:
+                print(f"\nNo anomalies found above £{threshold:.2f}\n")
+                continue
+
+            print(f"\nPossible anomalies (>= £{threshold:.2f}):")
+            for d, m, a, c in rows:
+                print(f"- {d} | {m} | £{a:.2f} | {c}")
+            print("")
             continue
 
 

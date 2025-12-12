@@ -81,3 +81,41 @@ class FinanceDB:
         )
         return cursor.fetchall()
 
+    def spend_by_month_and_category(self):
+        cursor = self.conn.cursor()
+        cursor.execute(
+            """
+            SELECT substr(date, 1, 7) as month, category, SUM(amount) as total
+            FROM transactions
+            GROUP BY month, category
+            ORDER BY month DESC, total DESC
+            """
+        )
+        return cursor.fetchall()
+
+    def top_merchants(self, limit: int = 5):
+        cursor = self.conn.cursor()
+        cursor.execute(
+            """
+            SELECT merchant, SUM(amount) as total
+            FROM transactions
+            GROUP BY merchant
+            ORDER BY total DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+        return cursor.fetchall()
+
+    def possible_anomalies(self, high_amount_threshold: float = 100.0):
+        cursor = self.conn.cursor()
+        cursor.execute(
+            """
+            SELECT date, merchant, amount, category
+            FROM transactions
+            WHERE amount >= ?
+            ORDER BY amount DESC
+            """,
+            (high_amount_threshold,),
+        )
+        return cursor.fetchall()
