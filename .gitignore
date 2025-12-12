@@ -9,3 +9,7 @@ wheels/
 # Virtual environments
 .venv
 .env
+test_ocr.py
+test_receipt.py
+receipt_2.png
+receipt.png

@@ -119,3 +119,19 @@ class FinanceDB:
             (high_amount_threshold,),
         )
         return cursor.fetchall()
+
+    # Check if we've ever seen this merchant before
+    def merchant_exists(self, merchant: str) -> bool:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "SELECT 1 FROM transactions WHERE lower(merchant)=lower(?) LIMIT 1",
+            (merchant,),
+        )
+        return cursor.fetchone() is not None
+
+    # Get typical spend stats to support anomaly detection (simple baseline)
+    def avg_amount(self) -> float:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT AVG(amount) FROM transactions")
+        val = cursor.fetchone()[0]
+        return float(val) if val is not None else 0.0

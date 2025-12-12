@@ -3,3 +3,5 @@ chromadb
 python-dotenv
 mcp-use
 langchain-openai
+pytesseract 
+pillow
