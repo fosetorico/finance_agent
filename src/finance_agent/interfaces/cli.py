@@ -7,6 +7,8 @@ from openai import AsyncOpenAI
 from finance_agent.data.embeddings import MemoryStore
 from finance_agent.data.db import FinanceDB
 from finance_agent.agent.categorizer import categorise
+from finance_agent.agent.router import classify_intent
+from finance_agent.agent.tools import get_db_context
 
 
 # Load environment variables from .env
@@ -31,121 +33,34 @@ async def chat():
             print("Goodbye!")
             break
 
-        # Retrieve similar past exchanges from memory
-        similar = memory.search(user_input)
-        context_block = "\n\n".join(similar)
+        # The agent will: Decide intent, Pull tools when needed, Reason only when needed
+        intent = classify_intent(user_input)
 
-        # Pull structured facts from SQLite
-        total = db.total_spend()
-        by_cat = db.spend_by_category()
-        recent = db.recent_transactions(limit=10)
+        memory_snippets = memory.search(user_input)
+        memory_block = "\n\n".join(memory_snippets)
 
-        by_cat_text = "\n".join([f"- {cat}: £{amt:.2f}" for cat, amt in by_cat]) if by_cat else "No data yet."
-        recent_text = "\n".join([f"- {d} | {m} | £{a:.2f} | {c}" for d, m, a, c in recent]) if recent else "No data yet."
+        db_context = ""
+        if intent in ("db", "hybrid"):
+            db_context = get_db_context(db)
 
-        finance_facts = f"""
-            Structured finance facts (from SQLite):
-            Total spend recorded: £{total:.2f}
-
-            Spend by category:
-            {by_cat_text}
-
-            Recent transactions (latest first):
-            {recent_text}
-        """
-
-        # Build a prompt that includes memory
         system_prompt = (
-            "You are a helpful personal finance assistant. "
-            "You help the user understand spending, budgeting, and financial habits. "
-            "Be clear, concise, and practical."
+            "You are a personal finance intelligence agent. "
+            "Use structured financial data when provided. "
+            "Base advice on facts, not assumptions."
         )
 
         full_input = f"""
-            {finance_facts}
+            User intent: {intent}
 
-            Previous relevant conversation snippets:
-            {context_block}
+            {db_context}
+
+            Relevant past memory:
+            {memory_block}
 
             User question:
             {user_input}
         """
 
-        # Simple add Transaction
-        if user_input.lower().startswith("add transaction"):
-            # Example:
-            # add transaction 2024-01-10 Tesco 24.50 [Category]
-            parts = user_input.split()
-
-            try:
-                date = parts[2]
-                merchant = parts[3]
-                amount = float(parts[4])
-
-                # Category optional: if not provided, auto-categorise
-                if len(parts) >= 6:
-                    category = parts[5]
-                else:
-                    category = categorise(merchant, amount)
-
-                db.add_transaction(date, merchant, amount, category)
-                print(f"Transaction added successfully. Category: {category}\n")
-                continue
-
-            except Exception:
-                print(
-                    "Invalid format.\n"
-                    "Use: add transaction YYYY-MM-DD Merchant Amount [Category]\n"
-                )
-                continue
-
-        # Total Expense
-        if user_input.lower() == "total spend":
-            total = db.total_spend()
-            print(f"\nTotal spend recorded: £{total:.2f}\n")
-            continue
-
-        # Monthly Summay
-        if user_input.lower() == "monthly summary":
-            rows = db.spend_by_month_and_category()
-            if not rows:
-                print("\nNo transactions yet.\n")
-                continue
-
-            print("\nMonthly spend by category:")
-            for month, cat, total in rows:
-                print(f"- {month} | {cat}: £{total:.2f}")
-            print("")
-            continue
-
-        #  Top Merchant
-        if user_input.lower() == "top merchants":
-            rows = db.top_merchants()
-            print("\nTop merchants:")
-            for m, total in rows:
-                print(f"- {m}: £{total:.2f}")
-            print("")
-            continue
-
-        # Anomaly Detection
-        if user_input.lower().startswith("anomalies"):
-            # anomalies [threshold]
-            parts = user_input.split()
-            threshold = float(parts[1]) if len(parts) > 1 else 100.0
-            rows = db.possible_anomalies(threshold)
-
-            if not rows:
-                print(f"\nNo anomalies found above £{threshold:.2f}\n")
-                continue
-
-            print(f"\nPossible anomalies (>= £{threshold:.2f}):")
-            for d, m, a, c in rows:
-                print(f"- {d} | {m} | £{a:.2f} | {c}")
-            print("")
-            continue
-
-
-        # Call OpenAI Responses API (gpt-4.1)
         response = await client.responses.create(
             model="gpt-4.1",
             input=[
@@ -154,13 +69,11 @@ async def chat():
             ],
         )
 
-        # Extract text output
         answer = response.output[0].content[0].text
-
         print("\nAssistant:", answer, "\n")
 
-        # Save this new exchange into memory
         memory.add(user_input, answer)
+        continue
 
 
 if __name__ == "__main__":
