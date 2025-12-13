@@ -5,3 +5,5 @@ mcp-use
 langchain-openai
 pytesseract 
 pillow
+langchain
+langchain-chroma 

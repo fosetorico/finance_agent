@@ -12,8 +12,8 @@ class FinanceDB:
     def _create_tables(self):
         cursor = self.conn.cursor()
 
-        cursor.execute(
-            """
+        # Create transactions table
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS transactions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 date TEXT,
@@ -22,7 +22,16 @@ class FinanceDB:
                 category TEXT,
                 source TEXT
             )
-            """
+        """
+        )
+
+        # Create budgets table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS budgets (
+                category TEXT PRIMARY KEY,
+                monthly_limit REAL NOT NULL
+            )
+        """
         )
 
         self.conn.commit()
@@ -111,10 +120,10 @@ class FinanceDB:
         cursor = self.conn.cursor()
         cursor.execute(
             """
-            SELECT date, merchant, amount, category
-            FROM transactions
-            WHERE amount >= ?
-            ORDER BY amount DESC
+                SELECT date, merchant, amount, category
+                FROM transactions
+                WHERE amount >= ?
+                ORDER BY amount DESC
             """,
             (high_amount_threshold,),
         )
@@ -135,3 +144,52 @@ class FinanceDB:
         cursor.execute("SELECT AVG(amount) FROM transactions")
         val = cursor.fetchone()[0]
         return float(val) if val is not None else 0.0
+
+    # Insert or update a monthly budget for a category
+    def set_budget(self, category: str, monthly_limit: float):
+        cur = self.conn.cursor()
+        cur.execute("""
+            INSERT INTO budgets(category, monthly_limit)
+            VALUES(?, ?)
+            ON CONFLICT(category) DO UPDATE SET monthly_limit=excluded.monthly_limit
+        """, (category, monthly_limit))
+        self.conn.commit()
+
+    # Return all budgets
+    def get_budgets(self):
+        cur = self.conn.cursor()
+        cur.execute("SELECT category, monthly_limit FROM budgets")
+        return cur.fetchall()
+
+    # Spend per category for current month
+    def spend_this_month_by_category(self):
+        cur = self.conn.cursor()
+        cur.execute("""
+            SELECT category, SUM(amount) as total
+            FROM transactions
+            WHERE strftime('%Y-%m', date)=strftime('%Y-%m', 'now')
+            GROUP BY category
+        """)
+        return cur.fetchall()
+
+    # Spending for the last 30 days
+    def spend_last_30_days(self):
+        cur = self.conn.cursor()
+        cur.execute("""
+            SELECT SUM(amount) FROM transactions
+            WHERE date >= date('now', '-30 day')
+        """)
+        val = cur.fetchone()[0]
+        return float(val) if val else 0.0
+
+    # Spending for the previous last 30 days
+    def spend_prev_30_days(self):
+        cur = self.conn.cursor()
+        cur.execute("""
+            SELECT SUM(amount) FROM transactions
+            WHERE date < date('now', '-30 day')
+            AND date >= date('now', '-60 day')
+        """)
+        val = cur.fetchone()[0]
+        return float(val) if val else 0.0
+
