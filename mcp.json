@@ -1,10 +1,28 @@
 {
-    "connectors": {
-      "browser": {
-        "type": "stdio",
-        "command": "npx",
-        "args": ["@modelcontextprotocol/server-browser"]
+  "mcpServers": {
+      "playwright": {
+          "command": "npx",
+          "args": [
+          "-y",
+          "@playwright/mcp@latest"
+          ]
+      },
+
+      "airbnb": {
+      "command": "npx",
+      "args": [
+          "-y",
+          "@openbnb/mcp-server-airbnb"
+          ]
+      },
+
+      "duckduckgo-search": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "duckduckgo-mcp-server"
+          ]
       }
-    }
-}
+  }
+} 
   
