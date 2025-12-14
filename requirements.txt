@@ -7,3 +7,5 @@ pytesseract
 pillow
 langchain
 langchain-chroma 
+pdfplumber 
+pypdf

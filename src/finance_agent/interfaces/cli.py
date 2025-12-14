@@ -18,7 +18,9 @@ from finance_agent.tools.gdelt_news import fetch_latest_news, format_headlines
 from finance_agent.tools.trusted_news import FINANCE_SOURCES, AI_SOURCES, fetch_trusted_news, format_news
 from finance_agent.tools.research import collect_research_evidence, build_research_prompt
 from finance_agent.tools.sentiment import build_sentiment_prompt
+from finance_agent.tools.pdf_statement import parse_statement_transactions_pdf
 
+from finance_agent.services.statement_ingestion import confirm_statement_transactions
 from finance_agent.services.receipt_ingestion import confirm_transaction
 
 from finance_agent.memory.memory_store import MemoryStore
@@ -243,7 +245,6 @@ async def chat():
 
             continue
 
-
         # -----------------------------
         # Intent classification
         # -----------------------------
@@ -308,6 +309,42 @@ async def chat():
                     source="receipt",
                 )
                 print("✅ Receipt saved to DB.\n")
+            continue
+    
+        # =============================
+        # ADD STATEMENT (PDF)
+        # =============================
+        if lower.startswith("add statement"):
+            parts = user_input.split(maxsplit=2)
+            if len(parts) < 3:
+                print("Usage: add statement path/to/statement.pdf\n")
+                continue
+
+            pdf_path = parts[2].strip().strip('"')
+
+            print("\n📄 Reading PDF statement...\n")
+            try:
+                txs = parse_statement_transactions_pdf(pdf_path)
+                selected = confirm_statement_transactions(txs)
+
+                if not selected:
+                    print("\nNo transactions added.\n")
+                    continue
+
+                for t in selected:
+                    db.add_transaction(
+                        date=t.date,
+                        merchant=t.merchant,
+                        amount=float(t.amount),
+                        category=t.category,
+                        source="statement",
+                    )
+
+                print(f"\n✅ Added {len(selected)} statement transactions to finance.db\n")
+
+            except Exception as e:
+                print(f"❌ Statement ingestion error: {e}\n")
+
             continue
 
         # =============================
