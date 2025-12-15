@@ -71,36 +71,64 @@ _MONTHS = {
 
 # --- Merchant cleanup --------------------------------------------------------
 _NOISE_TOKENS = [
-    "DESCRIPTION", "TYPE", "MONEY", "IN", "OUT", "BALANCE", "COLUMN",
-    "DATE", "CDOLumn", "CTolumn", "DFescription", "DLescription",
-    "DSescription", "DAescription", "DWescription",
-    "Moneyb", "Ilna", "n(k£.)", "TFype", "TCype", "TDype", "DW", "DA", "DS"
+    "TFype", "TCype", "TDype",
+    "Moneyb", "Ilna", "n(k£.)",
+    "CTolumn", "CDolumn", "Column", "COLUMN", "CDOLumn",
+    "Money In", "Money Out", "Balance", "BALANCE",
+    "Date", "DATE", "D0ate", "D1ate",
+    "Description", "DESCRIPTION",
+    "Type", "TYPE",
+    "DFescription", "DLescription", "DAescription",
+    "DSescription", "DWescription",
+    "MONEY", "IN", "OUT",
+    "DW", "DA", "DS"
 ]
 
 
 def _clean_merchant(raw: str) -> str:
-    """Remove PDF column-noise and leave a short merchant string."""
     if not raw:
-        return "UNKNOWN"
+        return "Unknown"
 
     s = raw
 
-    # Remove common column words / artefacts (case-insensitive)
-    for tok in _NOISE_TOKENS:
-        s = re.sub(rf"\b{re.escape(tok)}\b", " ", s, flags=re.IGNORECASE)
+    # Remove known OCR/table noise tokens
+    for t in _NOISE_TOKENS:
+        s = s.replace(t, " ")
 
-    # Remove tiny type codes like PO / PT / EB / PI (often not useful for merchant)
-    s = re.sub(r"\b[A-Z]{2}\b", " ", s)
+    # Kill weird repeated OCR artifacts
+    s = re.sub(r"\b(?:n\(k£\.\)|k£\.)\b", " ", s, flags=re.IGNORECASE)
 
-    # Remove leftover punctuation & collapse whitespace
-    s = re.sub(r"[|:;]+", " ", s)
-    s = re.sub(r"\s+", " ", s).strip(" -")
+    # Keep readable characters, collapse spaces
+    s = re.sub(r"[^A-Za-z0-9&'./\- ]+", " ", s)
+    s = re.sub(r"\s{2,}", " ", s).strip()
 
-    # Keep it short-ish (helps categoriser)
-    if len(s) > 60:
-        s = s[:60].strip()
+    # Optional: shorten if it’s still too long
+    return s[:80] if len(s) > 80 else s
 
-    return s or "UNKNOWN"
+
+# def _clean_merchant(raw: str) -> str:
+#     """Remove PDF column-noise and leave a short merchant string."""
+#     if not raw:
+#         return "UNKNOWN"
+
+#     s = raw
+
+#     # Remove common column words / artefacts (case-insensitive)
+#     for tok in _NOISE_TOKENS:
+#         s = re.sub(rf"\b{re.escape(tok)}\b", " ", s, flags=re.IGNORECASE)
+
+#     # Remove tiny type codes like PO / PT / EB / PI (often not useful for merchant)
+#     s = re.sub(r"\b[A-Z]{2}\b", " ", s)
+
+#     # Remove leftover punctuation & collapse whitespace
+#     s = re.sub(r"[|:;]+", " ", s)
+#     s = re.sub(r"\s+", " ", s).strip(" -")
+
+#     # Keep it short-ish (helps categoriser)
+#     if len(s) > 60:
+#         s = s[:60].strip()
+
+#     return s or "UNKNOWN"
 
 
 def extract_text_from_pdf(pdf_path: str) -> str:
