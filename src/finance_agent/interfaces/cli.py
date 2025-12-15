@@ -22,6 +22,7 @@ from finance_agent.tools.pdf_statement import parse_statement_transactions_pdf
 
 from finance_agent.services.statement_ingestion import confirm_statement_transactions
 from finance_agent.services.receipt_ingestion import confirm_transaction
+from finance_agent.services.anomaly_detection import detect_anomalies
 
 from finance_agent.memory.memory_store import MemoryStore
 from finance_agent.memory.memory_policy import should_store_memory
@@ -245,6 +246,22 @@ async def chat():
 
             continue
 
+        if user_input.lower().startswith("anomalies"):
+            parts = user_input.split()
+            days = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 60
+
+            rows = db.fetch_transactions(days=days)  # uses new db.py method
+            anomalies = detect_anomalies(rows)
+
+            if not anomalies:
+                print("✅ No anomalies detected.")
+                continue
+
+            print(f"⚠️ Anomalies (last {days} days):")
+            for a in anomalies[:10]:
+                print(f"- {a.date} | {a.merchant} | {a.amount:.2f} | {a.category} | {a.severity.upper()} | {a.reason}")
+            continue
+
         # -----------------------------
         # Intent classification
         # -----------------------------
@@ -386,6 +403,7 @@ async def chat():
             print(f"Previous 30 days: £{prev30:.2f}")
             print(f"Change: £{diff:+.2f}\n")
             continue
+
 
         # =============================
         # GENERAL FINANCE INTELLIGENCE

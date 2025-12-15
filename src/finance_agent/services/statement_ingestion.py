@@ -45,7 +45,7 @@ def _ensure_category(t: StatementTx, categoriser: Optional[Categoriser] = None) 
 def confirm_statement_transactions(
     txs: List[StatementTx],
     categoriser: Optional[Categoriser] = None,
-) -> List[StatementTx]:
+    ) -> List[StatementTx]:
     """
     Interactive confirmation:
     - show candidates

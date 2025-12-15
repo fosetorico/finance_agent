@@ -1,5 +1,7 @@
 import sqlite3
 from pathlib import Path
+from typing import List, Dict, Any, Optional, Tuple
+
 
 DB_PATH = Path("finance.db")
 
@@ -193,3 +195,35 @@ class FinanceDB:
         val = cur.fetchone()[0]
         return float(val) if val else 0.0
 
+    # Fetch Transactions
+    def fetch_transactions(
+        self,
+        days: int = 60,
+        category: Optional[str] = None,
+        merchant: Optional[str] = None
+    ) -> List[Tuple[str, str, float, str, str]]:
+        """
+        Fetch recent transactions for anomaly detection.
+        Returns rows: (date, merchant, amount, category, source)
+        """
+        cur = self.conn.cursor()
+
+        q = """
+            SELECT date, merchant, amount, category, source
+            FROM transactions
+            WHERE date >= date('now', ?)
+        """
+        params: List[Any] = [f"-{days} day"]
+
+        if category:
+            q += " AND lower(category)=lower(?)"
+            params.append(category)
+
+        if merchant:
+            q += " AND lower(merchant) LIKE lower(?)"
+            params.append(f"%{merchant}%")
+
+        q += " ORDER BY date DESC, id DESC"
+
+        cur.execute(q, params)
+        return cur.fetchall()

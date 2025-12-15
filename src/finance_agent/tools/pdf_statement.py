@@ -69,6 +69,39 @@ _MONTHS = {
     "dec": 12,
 }
 
+# --- Merchant cleanup --------------------------------------------------------
+_NOISE_TOKENS = [
+    "DESCRIPTION", "TYPE", "MONEY", "IN", "OUT", "BALANCE", "COLUMN",
+    "DATE", "CDOLumn", "CTolumn", "DFescription", "DLescription",
+    "DSescription", "DAescription", "DWescription",
+    "Moneyb", "Ilna", "n(k£.)", "TFype", "TCype", "TDype", "DW", "DA", "DS"
+]
+
+
+def _clean_merchant(raw: str) -> str:
+    """Remove PDF column-noise and leave a short merchant string."""
+    if not raw:
+        return "UNKNOWN"
+
+    s = raw
+
+    # Remove common column words / artefacts (case-insensitive)
+    for tok in _NOISE_TOKENS:
+        s = re.sub(rf"\b{re.escape(tok)}\b", " ", s, flags=re.IGNORECASE)
+
+    # Remove tiny type codes like PO / PT / EB / PI (often not useful for merchant)
+    s = re.sub(r"\b[A-Z]{2}\b", " ", s)
+
+    # Remove leftover punctuation & collapse whitespace
+    s = re.sub(r"[|:;]+", " ", s)
+    s = re.sub(r"\s+", " ", s).strip(" -")
+
+    # Keep it short-ish (helps categoriser)
+    if len(s) > 60:
+        s = s[:60].strip()
+
+    return s or "UNKNOWN"
+
 
 def extract_text_from_pdf(pdf_path: str) -> str:
     """Extract raw text from a PDF using pdfplumber."""
@@ -194,8 +227,10 @@ def _try_rule_based(lines: Iterable[str], default_year: Optional[int]) -> List[S
         after_date = re.sub(r"\bType\b\s+[A-Z]{2}\b", " ", after_date)
         # Stop at the first amount occurrence
         first_money_idx = after_date.find(f"{nums[0]:.2f}")
-        merchant = after_date[: first_money_idx if first_money_idx != -1 else 80].strip(" -|:;")
-        merchant = re.sub(r"\s+", " ", merchant).strip()
+        # merchant = after_date[: first_money_idx if first_money_idx != -1 else 80].strip(" -|:;")
+        # merchant = re.sub(r"\s+", " ", merchant).strip()
+        merchant_raw = after_date[: first_money_idx if first_money_idx != -1 else 80]
+        merchant = _clean_merchant(merchant_raw)
 
         if not merchant:
             merchant = "UNKNOWN"
@@ -316,8 +351,6 @@ def _llm_parse_transactions(lines: List[str], period: Tuple[Optional[date], Opti
 
 
 # --- Public API -------------------------------------------------------------
-
-
 def parse_statement_transactions_pdf(pdf_path: str) -> List[StatementTx]:
     """Main entrypoint used by the CLI/ingestion service."""
 

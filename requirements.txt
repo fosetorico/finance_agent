@@ -9,3 +9,9 @@ langchain
 langchain-chroma 
 pdfplumber 
 pypdf
+fastapi 
+uvicorn 
+streamlit 
+pandas 
+matplotlib
+fastapi-cors
