@@ -317,41 +317,6 @@ async def parse_statement(file: UploadFile = File(...)):
     return out
 
 
-
-# @app.post("/statements/parse")
-# async def parse_statement(file: UploadFile = File(...)):
-#     if parse_statement_transactions_pdf is None:
-#         raise HTTPException(status_code=501, detail="Statement parsing tool not available (pdf_statement).")
-
-#     data = await file.read()
-#     # Your parser expects a file path OR bytes depending on your implementation.
-#     # We'll try bytes-first, then fallback to temp file.
-#     try:
-#         candidates = parse_statement_transactions_pdf(data)  # type: ignore[misc]
-#     except TypeError:
-#         import tempfile
-#         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=True) as tmp:
-#             tmp.write(data)
-#             tmp.flush()
-#             candidates = parse_statement_transactions_pdf(tmp.name)  # type: ignore[misc]
-
-#     # Normalize to plain dicts
-#     out = []
-#     for c in candidates or []:
-#         if isinstance(c, dict):
-#             out.append(c)
-#         else:
-#             out.append(
-#                 {
-#                     "date": getattr(c, "date"),
-#                     "merchant": getattr(c, "merchant"),
-#                     "amount": float(getattr(c, "amount")),
-#                     "category": getattr(c, "category", "Uncategorised") or "Uncategorised",
-#                 }
-#             )
-#     return out
-
-
 @app.post("/statements/ingest")
 def ingest_statements(items: List[StatementTx]):
     db = FinanceDB(DB_PATH)
